@@ -18,6 +18,7 @@ button{padding:.55rem .9rem;border:none;border-radius:6px;background:#1976d2;col
 button:hover{background:#1565c0}
 #img-preview{max-height:120px;border-radius:6px;margin-bottom:.4rem;display:none}
 .upload-btn{background:#4caf50}
+.gen-btn{background:#9c27b0}
 </style>
 </head>
 <body>
@@ -27,13 +28,14 @@ button:hover{background:#1565c0}
 <div class="input-row">
   <button class="upload-btn" onclick="document.getElementById('file').click()" title="Enviar imagem">📷</button>
   <input type="file" id="file" accept="image/*" style="display:none" onchange="loadImage(this)">
-  <input type="text" id="t" placeholder="Pergunte algo ou descreva a imagem..." onkeydown="if(event.key=='Enter')send()">
+  <input type="text" id="t" placeholder="Pergunte algo..." onkeydown="if(event.key=='Enter')send()">
   <button onclick="send()">➤</button>
-  <button onclick="genImage()" style="background:#9c27b0" title="Gerar imagem">🎨</button>
+  <button class="gen-btn" onclick="genImage()" title="Gerar imagem">🎨</button>
 </div>
 <script>
 const log = document.getElementById('log');
 let pendingImage = null;
+let history = []; // ← MEMÓRIA DA CONVERSA
 
 function add(who, html) {
   const d = document.createElement('div');
@@ -60,19 +62,29 @@ async function send() {
   const t = document.getElementById('t');
   const msg = t.value.trim();
   if (!msg && !pendingImage) return;
+
+  // Adiciona ao histórico
+  const userMsg = { role: 'user', text: msg || 'Descreva esta imagem.', image: pendingImage };
+  history.push(userMsg);
+
   add('user', msg || '(imagem)');
   t.value = '';
   const el = add('ia', '⏳ Pensando...');
+
   try {
     const r = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: msg || 'Descreva esta imagem em detalhe.', image: pendingImage })
+      body: JSON.stringify({ messages: history }) // ← envia TODO o histórico
     });
     const d = await r.json();
     el.textContent = d.reply;
+
+    // Adiciona resposta da IA ao histórico
+    history.push({ role: 'assistant', text: d.reply });
   } catch (e) {
     el.textContent = '❌ Erro de rede. Tente de novo.';
+    history.pop(); // remove a mensagem do user se falhar
   }
   pendingImage = null;
   document.getElementById('img-preview').style.display = 'none';
@@ -82,9 +94,11 @@ async function genImage() {
   const t = document.getElementById('t');
   const prompt = t.value.trim();
   if (!prompt) { add('user', 'Descreva a imagem que quer gerar.'); return; }
+
   add('user', '🎨 ' + prompt);
   t.value = '';
   const el = add('ia', '⏳ Gerando imagem...');
+
   try {
     const r = await fetch('/api/generate-image', {
       method: 'POST',
@@ -97,7 +111,7 @@ async function genImage() {
     el.innerHTML = '<img src="' + url + '" alt="gerada">';
     log.scrollTop = log.scrollHeight;
   } catch (e) {
-    el.textContent = '❌ Falha ao gerar imagem.';
+    el.textContent = '❌ Falha ao gerar imagem. Tente de novo.';
   }
 }
 </script>
