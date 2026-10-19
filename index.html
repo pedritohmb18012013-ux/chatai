@@ -18,8 +18,6 @@ button{padding:.55rem .9rem;border:none;border-radius:6px;background:#1976d2;col
 button:hover{background:#1565c0}
 #img-preview{max-height:120px;border-radius:6px;margin-bottom:.4rem;display:none}
 .upload-btn{background:#4caf50}
-.gen-btn{background:#9c27b0}
-.clear-btn{background:#f44336}
 </style>
 </head>
 <body>
@@ -31,8 +29,6 @@ button:hover{background:#1565c0}
   <input type="file" id="file" accept="image/*" style="display:none" onchange="loadImage(this)">
   <input type="text" id="t" placeholder="Pergunte algo..." onkeydown="if(event.key=='Enter')send()">
   <button onclick="send()">➤</button>
-  <button class="gen-btn" onclick="genImage()" title="Gerar imagem">🎨</button>
-  <button class="clear-btn" onclick="clearChat()" title="Nova conversa">🗑️</button>
 </div>
 <script>
 const log = document.getElementById('log');
@@ -46,11 +42,6 @@ function add(who, html) {
   log.appendChild(d);
   log.scrollTop = log.scrollHeight;
   return d;
-}
-
-function clearChat() {
-  history = [];
-  log.innerHTML = '';
 }
 
 function loadImage(input) {
@@ -70,7 +61,6 @@ async function send() {
   const msg = t.value.trim();
   if (!msg && !pendingImage) return;
 
-  // Adiciona ao histórico COM a imagem
   const userMsg = { role: 'user', text: msg || 'Descreva esta imagem.', image: pendingImage };
   history.push(userMsg);
 
@@ -86,12 +76,8 @@ async function send() {
     });
     const d = await r.json();
     el.textContent = d.reply;
-
-    // Adiciona resposta da IA
     history.push({ role: 'assistant', text: d.reply });
 
-    // ← IMPORTANTE: remove a imagem do histórico depois de processar
-    // Substitui por texto para não estourar o contexto
     const imgIdx = history.findIndex(m => m.image);
     if (imgIdx !== -1) {
       history[imgIdx] = { role: 'user', text: userMsg.text + ' [imagem já analisada]' };
@@ -102,31 +88,6 @@ async function send() {
   }
   pendingImage = null;
   document.getElementById('img-preview').style.display = 'none';
-}
-
-async function genImage() {
-  const t = document.getElementById('t');
-  const prompt = t.value.trim();
-  if (!prompt) { add('user', 'Descreva a imagem que quer gerar.'); return; }
-
-  add('user', '🎨 ' + prompt);
-  t.value = '';
-  const el = add('ia', '⏳ Gerando imagem...');
-
-  try {
-    const r = await fetch('/api/generate-image', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt })
-    });
-    if (!r.ok) throw new Error('fail');
-    const blob = await r.blob();
-    const url = URL.createObjectURL(blob);
-    el.innerHTML = '<img src="' + url + '" alt="gerada">';
-    log.scrollTop = log.scrollHeight;
-  } catch (e) {
-    el.textContent = '❌ Falha ao gerar imagem. Tente de novo.';
-  }
 }
 </script>
 </body>
