@@ -27,8 +27,9 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model,
+        temperature: 0.3,
         messages: [
-          { role: 'system', content: 'Você é um assistente de estudos. Responda em português de forma clara e bem escrita.' },
+          { role: 'system', content: 'Você é um assistente de estudos. Regras obrigatórias: Responda APENAS com a resposta final. Nunca mostre seu raciocínio, dúvidas ou correções. Nunca use asteriscos, travessões de pensamento, "pensando em voz alta" ou "correção:". Se for um exercício, liste só as respostas numeradas, sem explicação a menos que peçam. Seja direto, objetivo e bem escrito. Responda em português do Brasil.' },
           { role: 'user', content }
         ],
         max_tokens: 500
