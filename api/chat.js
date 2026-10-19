@@ -10,8 +10,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ reply: 'Nenhuma mensagem recebida.' });
   }
 
-  // Converte imagens base64 para o formato da API
-  const formatted = messages.map(m => {
+  // Limita às últimas 10 mensagens (segurança)
+  const recent = messages.slice(-10);
+
+  // Converte para formato da API
+  const formatted = recent.map(m => {
     if (m.image) {
       return {
         role: m.role,
@@ -24,8 +27,7 @@ export default async function handler(req, res) {
     return { role: m.role, content: m.text };
   });
 
-  // Usa modelo de visão se a última mensagem tiver imagem
-  const hasImage = messages.some(m => m.image);
+  const hasImage = recent.some(m => m.image);
   const model = hasImage ? 'qwen/qwen3.8-27b' : 'openai/gpt-oss-120b';
 
   try {
@@ -39,7 +41,7 @@ export default async function handler(req, res) {
         model,
         temperature: 0.3,
         messages: [
-          { role: 'system', content: 'Você é um assistente de estudos. Regras obrigatórias: Responda APENAS com a resposta final. Nunca mostre seu raciocínio, dúvidas ou correções. Nunca use asteriscos, travessões de pensamento, "pensando em voz alta" ou "correção:". Se for um exercício, liste só as respostas numeradas, sem explicação a menos que peçam. Seja direto, objetivo e bem escrito. Responda em português do Brasil. Lembre-se do contexto da conversa anterior.' },
+          { role: 'system', content: 'Você é um assistente de estudos. Regras: Responda APENAS com a resposta final. Nunca mostre raciocínio, dúvidas ou correções. Nunca use asteriscos, travessões ou "pensando em voz alta". Se for exercício, liste só as respostas numeradas. Seja direto e bem escrito. Responda em português do Brasil. Lembre-se do contexto da conversa.' },
           ...formatted
         ],
         max_tokens: 500
