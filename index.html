@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Meu IA</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:sans-serif;max-width:650px;margin:0 auto;padding:1rem}
+#log{border:1px solid #ddd;border-radius:10px;padding:1rem;height:400px;overflow-y:auto;margin-bottom:.8rem;background:#fafafa}
+.msg{margin:.5rem 0;padding:.4rem .6rem;border-radius:6px;max-width:85%;word-wrap:break-word}
+.user{background:#e3f2fd;margin-left:auto}
+.ia{background:#fff;border:1px solid #eee}
+.msg img{max-width:100%;border-radius:8px;margin-top:.4rem}
+.input-row{display:flex;gap:.4rem;align-items:center}
+input[type=text]{flex:1;padding:.55rem;border:1px solid #ccc;border-radius:6px}
+button{padding:.55rem .9rem;border:none;border-radius:6px;background:#1976d2;color:#fff;cursor:pointer}
+button:hover{background:#1565c0}
+#img-preview{max-height:120px;border-radius:6px;margin-bottom:.4rem;display:none}
+.upload-btn{background:#4caf50}
+</style>
+</head>
+<body>
+<h3>🤖 Assistente</h3>
+<div id="log"></div>
+<img id="img-preview">
+<div class="input-row">
+  <button class="upload-btn" onclick="document.getElementById('file').click()" title="Enviar imagem">📷</button>
+  <input type="file" id="file" accept="image/*" style="display:none" onchange="loadImage(this)">
+  <input type="text" id="t" placeholder="Pergunte algo ou descreva a imagem..." onkeydown="if(event.key=='Enter')send()">
+  <button onclick="send()">➤</button>
+  <button onclick="genImage()" style="background:#9c27b0" title="Gerar imagem">🎨</button>
+</div>
+<script>
+const log = document.getElementById('log');
+let pendingImage = null;
+
+function add(who, html) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + who;
+  d.innerHTML = html;
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+  return d;
+}
+
+function loadImage(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    pendingImage = e.target.result;
+    document.getElementById('img-preview').src = pendingImage;
+    document.getElementById('img-preview').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function send() {
+  const t = document.getElementById('t');
+  const msg = t.value.trim();
+  if (!msg && !pendingImage) return;
+  add('user', msg || '(imagem)');
+  t.value = '';
+  const el = add('ia', '⏳ Pensando...');
+  try {
+    const r = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg || 'Descreva esta imagem em detalhe.', image: pendingImage })
+    });
+    const d = await r.json();
+    el.textContent = d.reply;
+  } catch (e) {
+    el.textContent = '❌ Erro de rede. Tente de novo.';
+  }
+  pendingImage = null;
+  document.getElementById('img-preview').style.display = 'none';
+}
+
+async function genImage() {
+  const t = document.getElementById('t');
+  const prompt = t.value.trim();
+  if (!prompt) { add('user', 'Descreva a imagem que quer gerar.'); return; }
+  add('user', '🎨 ' + prompt);
+  t.value = '';
+  const el = add('ia', '⏳ Gerando imagem...');
+  try {
+    const r = await fetch('/api/generate-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt })
+    });
+    if (!r.ok) throw new Error('fail');
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    el.innerHTML = '<img src="' + url + '" alt="gerada">';
+    log.scrollTop = log.scrollHeight;
+  } catch (e) {
+    el.textContent = '❌ Falha ao gerar imagem.';
+  }
+}
+</script>
+</body>
+</html>   
