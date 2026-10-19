@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   if (!prompt) return res.status(400).json({ error: 'Prompt vazio' });
 
   const encoded = encodeURIComponent(prompt);
-  const imageUrl = `https://gen.pollinations.ai/image/${encoded}?width=768&height=768&nologo=true`;
+  const imageUrl = `https://image.pollinations.ai/prompt/${encoded}?width=768&height=768&nologo=true&model=flux`;
 
   try {
     const r = await fetch(imageUrl);
