@@ -3,20 +3,30 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const { message, image } = req.body || {};
+  const { messages } = req.body || {};
   const apiKey = process.env.GROQ_API_KEY;
 
-  let content;
-  if (image) {
-    content = [
-      { type: 'text', text: message || 'Descreva esta imagem.' },
-      { type: 'image_url', image_url: { url: image } }
-    ];
-  } else {
-    content = message;
+  if (!messages || !messages.length) {
+    return res.status(400).json({ reply: 'Nenhuma mensagem recebida.' });
   }
 
-  const model = image ? 'qwen/qwen3.8-27b' : 'openai/gpt-oss-120b';
+  // Converte imagens base64 para o formato da API
+  const formatted = messages.map(m => {
+    if (m.image) {
+      return {
+        role: m.role,
+        content: [
+          { type: 'text', text: m.text || 'Descreva esta imagem.' },
+          { type: 'image_url', image_url: { url: m.image } }
+        ]
+      };
+    }
+    return { role: m.role, content: m.text };
+  });
+
+  // Usa modelo de visão se a última mensagem tiver imagem
+  const hasImage = messages.some(m => m.image);
+  const model = hasImage ? 'qwen/qwen3.8-27b' : 'openai/gpt-oss-120b';
 
   try {
     const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -29,8 +39,8 @@ export default async function handler(req, res) {
         model,
         temperature: 0.3,
         messages: [
-          { role: 'system', content: 'Você é um assistente de estudos. Regras obrigatórias: Responda APENAS com a resposta final. Nunca mostre seu raciocínio, dúvidas ou correções. Nunca use asteriscos, travessões de pensamento, "pensando em voz alta" ou "correção:". Se for um exercício, liste só as respostas numeradas, sem explicação a menos que peçam. Seja direto, objetivo e bem escrito. Responda em português do Brasil.' },
-          { role: 'user', content }
+          { role: 'system', content: 'Você é um assistente de estudos. Regras obrigatórias: Responda APENAS com a resposta final. Nunca mostre seu raciocínio, dúvidas ou correções. Nunca use asteriscos, travessões de pensamento, "pensando em voz alta" ou "correção:". Se for um exercício, liste só as respostas numeradas, sem explicação a menos que peçam. Seja direto, objetivo e bem escrito. Responda em português do Brasil. Lembre-se do contexto da conversa anterior.' },
+          ...formatted
         ],
         max_tokens: 500
       })
