@@ -19,6 +19,7 @@ button:hover{background:#1565c0}
 #img-preview{max-height:120px;border-radius:6px;margin-bottom:.4rem;display:none}
 .upload-btn{background:#4caf50}
 .gen-btn{background:#9c27b0}
+.clear-btn{background:#f44336}
 </style>
 </head>
 <body>
@@ -31,11 +32,12 @@ button:hover{background:#1565c0}
   <input type="text" id="t" placeholder="Pergunte algo..." onkeydown="if(event.key=='Enter')send()">
   <button onclick="send()">➤</button>
   <button class="gen-btn" onclick="genImage()" title="Gerar imagem">🎨</button>
+  <button class="clear-btn" onclick="clearChat()" title="Nova conversa">🗑️</button>
 </div>
 <script>
 const log = document.getElementById('log');
 let pendingImage = null;
-let history = []; // ← MEMÓRIA DA CONVERSA
+let history = [];
 
 function add(who, html) {
   const d = document.createElement('div');
@@ -44,6 +46,11 @@ function add(who, html) {
   log.appendChild(d);
   log.scrollTop = log.scrollHeight;
   return d;
+}
+
+function clearChat() {
+  history = [];
+  log.innerHTML = '';
 }
 
 function loadImage(input) {
@@ -63,7 +70,7 @@ async function send() {
   const msg = t.value.trim();
   if (!msg && !pendingImage) return;
 
-  // Adiciona ao histórico
+  // Adiciona ao histórico COM a imagem
   const userMsg = { role: 'user', text: msg || 'Descreva esta imagem.', image: pendingImage };
   history.push(userMsg);
 
@@ -75,16 +82,23 @@ async function send() {
     const r = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: history }) // ← envia TODO o histórico
+      body: JSON.stringify({ messages: history })
     });
     const d = await r.json();
     el.textContent = d.reply;
 
-    // Adiciona resposta da IA ao histórico
+    // Adiciona resposta da IA
     history.push({ role: 'assistant', text: d.reply });
+
+    // ← IMPORTANTE: remove a imagem do histórico depois de processar
+    // Substitui por texto para não estourar o contexto
+    const imgIdx = history.findIndex(m => m.image);
+    if (imgIdx !== -1) {
+      history[imgIdx] = { role: 'user', text: userMsg.text + ' [imagem já analisada]' };
+    }
   } catch (e) {
     el.textContent = '❌ Erro de rede. Tente de novo.';
-    history.pop(); // remove a mensagem do user se falhar
+    history.pop();
   }
   pendingImage = null;
   document.getElementById('img-preview').style.display = 'none';
